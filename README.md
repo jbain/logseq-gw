@@ -17,7 +17,7 @@ Background and full design: see the `Sandbox graph gateway design` and
 
 - `POST /graphs/:graph/v1/invoke` — proxies to the graph's worker.
 - `GET /graphs/:graph/v1/events` — SSE proxy, unbuffered, no idle timeout.
-- `GET /graphs` — returns the configured allowlist as `{"graphs": [...]}`.
+- `GET /graphs` — returns the configured allowlist as `{"graphs": [...]}` (empty if unset).
 - `GET /healthz`
 
 Any other path (notably the worker's unauthenticated `/v1/shutdown` and
@@ -29,7 +29,7 @@ Any other path (notably the worker's unauthenticated `/v1/shutdown` and
 |---|---|---|---|
 | `GATEWAY_PORT` | no | `8085` | Listen port |
 | `GATEWAY_ROOT_DIR` | yes | — | Passed to `logseq --root-dir`; must match where this container's graph files live |
-| `GATEWAY_GRAPHS` | yes | — | Comma-separated graph allowlist |
+| `GATEWAY_GRAPHS` | no | — (any graph allowed) | Comma-separated graph allowlist. When unset, every graph name is accepted and `GET /graphs` reports `{"graphs":[]}`. |
 | `GATEWAY_LOGSEQ_BIN` | no | `logseq` | logseq CLI executable |
 | `GATEWAY_SUBPROCESS_TIMEOUT_MS` | no | `20000` | Timeout for each `logseq server start`/`server list` call |
 

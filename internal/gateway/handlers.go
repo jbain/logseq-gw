@@ -15,8 +15,12 @@ func NewMux(cfg Config, proxy *Proxy) *http.ServeMux {
 	})
 
 	mux.HandleFunc("GET /graphs", func(w http.ResponseWriter, r *http.Request) {
+		graphs := cfg.Graphs
+		if graphs == nil {
+			graphs = []string{} // avoid encoding a nil slice as JSON null
+		}
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(map[string][]string{"graphs": cfg.Graphs})
+		json.NewEncoder(w).Encode(map[string][]string{"graphs": graphs})
 	})
 
 	mux.HandleFunc("POST /graphs/{graph}/v1/invoke", func(w http.ResponseWriter, r *http.Request) {

@@ -43,6 +43,44 @@ func TestGraphsEndpointReturnsAllowlist(t *testing.T) {
 	}
 }
 
+func TestGraphsEndpointWithNoAllowlistReturnsEmptyList(t *testing.T) {
+	cfg := testConfig() // no graphs configured
+	mux := NewMux(cfg, newTestProxy(&fakeRunner{}))
+
+	rec := httptest.NewRecorder()
+	mux.ServeHTTP(rec, httptest.NewRequest("GET", "/graphs", nil))
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d", rec.Code)
+	}
+	if body := rec.Body.String(); body != `{"graphs":[]}`+"\n" {
+		t.Fatalf("body = %q", body)
+	}
+}
+
+func TestInvokeAllowsAnyGraphWhenAllowlistUnset(t *testing.T) {
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte("ok"))
+	}))
+	defer upstream.Close()
+
+	runner := &fakeRunner{outputs: []fakeOutput{
+		{out: []byte(startOK)},
+		{out: []byte(listJSON("whatever", upstream.URL))},
+	}}
+	cfg := testConfig() // no graphs configured
+	mux := NewMux(cfg, newTestProxy(runner))
+
+	req := httptest.NewRequest("POST", "/graphs/whatever/v1/invoke", nil)
+	rec := httptest.NewRecorder()
+	mux.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, body = %s", rec.Code, rec.Body.String())
+	}
+}
+
 func TestInvokeRejectsGraphNotInAllowlist(t *testing.T) {
 	cfg := testConfig("demo")
 	mux := NewMux(cfg, newTestProxy(&fakeRunner{}))

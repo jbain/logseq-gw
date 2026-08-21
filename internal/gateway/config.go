@@ -16,7 +16,8 @@ type Config struct {
 	// this container's graph files actually live.
 	RootDir string
 	// Graphs is the allowlist of graph names this gateway will serve. Requests
-	// for any other graph are rejected with 404 before shelling out.
+	// for any other graph are rejected with 404 before shelling out. Optional:
+	// when empty, every graph is allowed and GET /graphs reports none.
 	Graphs []string
 	// LogseqBin is the logseq CLI executable to invoke.
 	LogseqBin string
@@ -28,7 +29,7 @@ type Config struct {
 //
 //	GATEWAY_PORT             listen port (default 8085)
 //	GATEWAY_ROOT_DIR         logseq CLI root dir, required
-//	GATEWAY_GRAPHS           comma-separated graph allowlist, required
+//	GATEWAY_GRAPHS           comma-separated graph allowlist (optional; unset allows any graph)
 //	GATEWAY_LOGSEQ_BIN       logseq CLI executable (default "logseq")
 //	GATEWAY_SUBPROCESS_TIMEOUT_MS  timeout for each logseq CLI call (default 20000)
 func LoadConfig() (Config, error) {
@@ -51,18 +52,13 @@ func LoadConfig() (Config, error) {
 		return Config{}, fmt.Errorf("GATEWAY_ROOT_DIR is required")
 	}
 
-	graphsEnv := os.Getenv("GATEWAY_GRAPHS")
-	if graphsEnv == "" {
-		return Config{}, fmt.Errorf("GATEWAY_GRAPHS is required (comma-separated graph allowlist)")
-	}
-	for _, g := range strings.Split(graphsEnv, ",") {
-		g = strings.TrimSpace(g)
-		if g != "" {
-			cfg.Graphs = append(cfg.Graphs, g)
+	if graphsEnv := os.Getenv("GATEWAY_GRAPHS"); graphsEnv != "" {
+		for _, g := range strings.Split(graphsEnv, ",") {
+			g = strings.TrimSpace(g)
+			if g != "" {
+				cfg.Graphs = append(cfg.Graphs, g)
+			}
 		}
-	}
-	if len(cfg.Graphs) == 0 {
-		return Config{}, fmt.Errorf("GATEWAY_GRAPHS is required (comma-separated graph allowlist)")
 	}
 
 	if v := os.Getenv("GATEWAY_LOGSEQ_BIN"); v != "" {
@@ -80,8 +76,12 @@ func LoadConfig() (Config, error) {
 	return cfg, nil
 }
 
-// Allowed reports whether graph is in the configured allowlist.
+// Allowed reports whether graph is in the configured allowlist. An empty
+// allowlist means no restriction: every graph is allowed.
 func (c Config) Allowed(graph string) bool {
+	if len(c.Graphs) == 0 {
+		return true
+	}
 	for _, g := range c.Graphs {
 		if g == graph {
 			return true
