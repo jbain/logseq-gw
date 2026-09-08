@@ -1,0 +1,6 @@
+.git
+.idea
+*.iml
+logseq-gw
+Dockerfile
+.dockerignore

@@ -59,3 +59,42 @@ Unit tests fake the `logseq` subprocess calls. Verifying against a real
 graph-scoped `logseq`/`logseq-pm` command with `LOGSEQ_CLI_BASE_URL` pointed
 at `http://127.0.0.1:<port>/graphs/<graph>` and diff the output against a
 direct (non-gateway) run.
+
+## Docker
+
+The image bundles `logseq-gw` with the `logseq` CLI taken from a Logseq
+nightly build. Logseq ships no standalone CLI -- it lives inside the desktop
+Electron bundle as `resources/app.asar/js/logseq-cli.js` -- so the build
+unpacks the asar to `/opt/logseq` and runs it on stock Node behind a
+`/usr/local/bin/logseq` shim, matching the desktop installer's name.
+Electron itself is not shipped: the CLI and `db-worker-node` are plain Node
+programs and their one native dependency (keytar) is N-API, so the Electron
+runtime is dead weight. Keep
+`NODE_TAG` on the Node major the bundle's Electron embeds (Electron 42 ->
+Node 24).
+
+```sh
+docker build --platform linux/arm64 -t logseq-gw .
+docker run -p 8085:8085 -v logseq-data:/data logseq-gw
+```
+
+Built and tested on `linux/arm64` (Rockchip SBCs and Apple Silicon under
+Docker Desktop); `linux/amd64` is wired up too. Graph files live in `/data`
+(`GATEWAY_ROOT_DIR` defaults to `/data/logseq`), which is a volume, and the
+container runs as uid 1000. To pin a specific Logseq release instead of the
+rolling nightly, pass `--build-arg LOGSEQ_RELEASE=2.0.1`.
+
+### Published image
+
+`.github/workflows/publish.yml` runs `go test ./...`, then builds
+`linux/arm64` + `linux/amd64` and pushes to GHCR on merge to `main`, tagged
+`latest`, `sha-<commit>`, and the build date. Pull requests build without
+pushing.
+
+```sh
+docker pull ghcr.io/<owner>/logseq-gw:latest
+```
+
+Because `nightly` is a rolling upstream tag, the workflow passes a dated
+`LOGSEQ_REFRESH` build arg so a merge re-resolves the nightly instead of
+reusing a cached download layer.
